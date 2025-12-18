@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>一年生漢字練習 - 描画最前面版</title>
     <style>
+        /* 教科書体フォントの指定 */
         @font-face {
             font-family: 'CustomKyokasho';
             src: local('Yu Kyokasho'), local('YuKyokasho'), 
@@ -23,13 +24,13 @@
             font-family: 'CustomKyokasho', "Hiragino Mincho ProN", serif;
         }
 
-        /* 操作パネル（最前面） */
+        /* 整理された操作パネル */
         .ui-panel {
             position: fixed;
             top: 15px;
             left: 50%;
             transform: translateX(-50%);
-            z-index: 100;
+            z-index: 100; /* ボタン類は一番上 */
             display: flex;
             gap: 8px;
             background: rgba(255, 255, 255, 0.9);
@@ -39,6 +40,8 @@
             backdrop-filter: blur(8px);
             align-items: center;
             border: 1px solid #ddd;
+            width: auto;
+            max-width: 95vw;
         }
 
         .yomi-info {
@@ -48,12 +51,12 @@
             text-align: center;
             font-size: clamp(18px, 4vw, 26px);
             color: #34495e;
-            z-index: 90;
+            z-index: 10;
             font-weight: bold;
             pointer-events: none;
         }
 
-        /* 補助線（一番後ろ） */
+        /* 補助線 */
         .grid-lines {
             position: fixed;
             top: 0;
@@ -61,53 +64,63 @@
             width: 100%;
             height: 100%;
             pointer-events: none;
-            z-index: 1; /* 最背面 */
+            z-index: 1; /* 一番奥 */
         }
         .line-h { position: absolute; top: 50%; left: 0; width: 100%; height: 1px; border-top: 2px dashed #eee; }
         .line-v { position: absolute; left: 50%; top: 0; width: 1px; height: 100%; border-left: 2px dashed #eee; }
 
-        /* お手本漢字（描画キャンバスの後ろ） */
         #guide {
             position: fixed;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
             font-size: 80vh;
-            color: #f0f0f0; /* 少しだけ濃くして見やすく */
+            color: rgba(0, 0, 0, 0.06);
             user-select: none;
             pointer-events: none;
-            z-index: 5; /* キャンバスの後ろ */
+            z-index: 2; /* 補助線より上で、キャンバスより下 */
             font-family: 'CustomKyokasho', serif;
         }
 
-        /* 描画キャンバス（お手本より前、パネルより後ろ） */
+        /* キャンバス（書く場所） */
         canvas {
             display: block;
             touch-action: none;
             position: relative;
-            z-index: 50; /* お手本よりも手前！ */
-            background-color: transparent; /* 背景を透明にするのがポイント */
+            z-index: 50; /* お手本（z-index: 2）よりも手前に配置 */
+            background-color: transparent; /* 下のお手本が見えるように透明化 */
         }
 
-        select, .btn {
+        /* ボタン類の整理 */
+        select {
             padding: 8px;
             font-size: 16px;
             border-radius: 8px;
             border: 1px solid #ccc;
+            background: #fafafa;
         }
 
         .btn {
+            padding: 8px 16px;
             font-size: 14px;
             font-weight: bold;
-            cursor: pointer;
-            color: white;
+            border-radius: 10px;
             border: none;
+            cursor: pointer;
+            transition: 0.2s;
+            color: white;
+            white-space: nowrap;
         }
+
         .btn-clear { background-color: #95a5a6; }
-        .btn-random { background-color: #e67e22; }
         .btn-next { background-color: #3498db; }
+        .btn-random { background-color: #e67e22; }
+
+        .btn:active { transform: scale(0.95); opacity: 0.8; }
 
         @media (max-width: 600px) {
+            .ui-panel { padding: 6px 10px; gap: 5px; }
+            .btn { padding: 8px 10px; font-size: 12px; }
             #guide { font-size: 70vw; }
         }
     </style>
