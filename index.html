@@ -3,8 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>小学一年生 漢字練習マスター</title>
+    <title>小学一年生 漢字練習マスター - 教科書体版</title>
     <style>
+        /* 教科書体フォントの指定 */
+        @font-face {
+            font-family: 'CustomKyokasho';
+            /* Windows: 游教科書体, Mac/iOS: 筑紫A丸軍・教科書体など */
+            src: local('Yu Kyokasho'), local('YuKyokasho'), 
+                 local('UD Digi Kyokasho NK-R'), local('UD デジタル 教科書体 NK-R'),
+                 local('HGKyokashotai'), local('HG教科書体'),
+                 local('Kyokasho ICA Pro M'), local('AR P教科書体M');
+        }
+
         body, html {
             margin: 0;
             padding: 0;
@@ -12,10 +22,10 @@
             height: 100%;
             overflow: hidden;
             background-color: #fff;
-            font-family: "Sawarabi Mincho", "Hiragino Mincho ProN", serif;
+            /* 全体的に教科書体、なければ明朝体 */
+            font-family: 'CustomKyokasho', "Hiragino Mincho ProN", "MS Mincho", serif;
         }
 
-        /* 操作パネル */
         .ui-panel {
             position: fixed;
             top: 10px;
@@ -24,29 +34,28 @@
             z-index: 100;
             display: flex;
             gap: 10px;
-            background: rgba(255, 255, 255, 0.9);
+            background: rgba(255, 255, 255, 0.95);
             padding: 10px 20px;
             border-radius: 50px;
             box-shadow: 0 4px 15px rgba(0,0,0,0.1);
             backdrop-filter: blur(5px);
             align-items: center;
-            border: 2px solid #2ecc71;
+            border: 2px solid #3498db;
         }
 
-        /* 読み仮名の表示 */
         .yomi-info {
             position: fixed;
-            top: 80px;
+            top: 85px;
             width: 100%;
             text-align: center;
-            font-size: 24px;
-            color: #27ae60;
+            font-size: clamp(16px, 5vw, 28px);
+            color: #2c3e50;
             z-index: 10;
             font-weight: bold;
             pointer-events: none;
+            background: rgba(255, 255, 255, 0.7);
         }
 
-        /* 補助線 */
         .grid-lines {
             position: fixed;
             top: 0;
@@ -56,20 +65,21 @@
             pointer-events: none;
             z-index: 1;
         }
-        .line-h { position: absolute; top: 50%; left: 0; width: 100%; height: 1px; border-top: 1px dashed #ccc; }
-        .line-v { position: absolute; left: 50%; top: 0; width: 1px; height: 100%; border-left: 1px dashed #ccc; }
+        .line-h { position: absolute; top: 50%; left: 0; width: 100%; height: 1px; border-top: 2px dashed #e0e0e0; }
+        .line-v { position: absolute; left: 50%; top: 0; width: 1px; height: 100%; border-left: 2px dashed #e0e0e0; }
 
-        /* お手本漢字（最前面） */
+        /* お手本漢字を教科書体に強制 */
         #guide {
             position: fixed;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            font-size: 75vh;
-            color: rgba(0, 0, 0, 0.05);
+            font-size: 80vh;
+            color: rgba(0, 0, 0, 0.06);
             user-select: none;
             pointer-events: none;
             z-index: 20;
+            font-family: 'CustomKyokasho', serif;
             font-weight: normal;
         }
 
@@ -81,20 +91,20 @@
         }
 
         button, select {
-            padding: 8px 15px;
+            padding: 10px 18px;
             font-size: 16px;
             border-radius: 20px;
-            border: 2px solid #2ecc71;
+            border: 2px solid #3498db;
             background: white;
             cursor: pointer;
+            font-family: sans-serif;
         }
 
-        button.clear { background: #fab1a0; border-color: #e17055; }
-        button.next { background: #2ecc71; color: white; border: none; font-weight: bold; }
+        button.clear { background: #eee; border-color: #bdc3c7; }
+        button.next { background: #3498db; color: white; border: none; font-weight: bold; }
         
         @media (max-width: 600px) {
-            #guide { font-size: 70vw; }
-            .yomi-info { font-size: 18px; top: 70px; }
+            #guide { font-size: 75vw; }
         }
     </style>
 </head>
@@ -103,7 +113,7 @@
     <div class="ui-panel">
         <select id="char-selector"></select>
         <button class="clear" onclick="clearCanvas()">けす</button>
-        <button class="next" onclick="nextChar()">つぎへ</button>
+        <button class="next" onclick="nextChar()">つぎの漢字</button>
     </div>
 
     <div id="yomi" class="yomi-info"></div>
@@ -124,7 +134,6 @@
         const yomiDiv = document.getElementById('yomi');
         const selector = document.getElementById('char-selector');
         
-        // 小学一年生の漢字（80文字）と読みのリスト
         const kanjiData = [
             {k:"一", y:"イチ・ひとつ"}, {k:"二", y:"ニ・ふたつ"}, {k:"三", y:"サン・みっつ"}, {k:"四", y:"シ・よっつ"}, {k:"五", y:"ゴ・いつつ"},
             {k:"六", y:"ロク・むっつ"}, {k:"七", y:"シチ・ななつ"}, {k:"八", y:"ハチ・やっつ"}, {k:"九", y:"キュウ・ここのつ"}, {k:"十", y:"ジュウ・とお"},
@@ -149,13 +158,12 @@
         function resizeCanvas() {
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
-            ctx.lineWidth = window.innerWidth < 600 ? 12 : 20;
+            ctx.lineWidth = window.innerWidth < 600 ? 14 : 22;
             ctx.lineCap = 'round';
             ctx.lineJoin = 'round';
-            ctx.strokeStyle = '#333';
+            ctx.strokeStyle = '#2c3e50';
         }
 
-        // セレクトボックス初期化
         kanjiData.forEach((item, index) => {
             const opt = document.createElement('option');
             opt.value = index;
@@ -213,10 +221,7 @@
         canvas.addEventListener('touchend', stopDrawing);
 
         selector.addEventListener('change', updateGuide);
-        
-        // 初回表示
         updateGuide();
-
     </script>
 </body>
 </html>
