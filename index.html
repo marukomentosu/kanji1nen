@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>小学一年生 漢字練習マスター</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #fff;
+            font-family: "Sawarabi Mincho", "Hiragino Mincho ProN", serif;
+        }
+
+        /* 操作パネル */
+        .ui-panel {
+            position: fixed;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 100;
+            display: flex;
+            gap: 10px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 10px 20px;
+            border-radius: 50px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            backdrop-filter: blur(5px);
+            align-items: center;
+            border: 2px solid #2ecc71;
+        }
+
+        /* 読み仮名の表示 */
+        .yomi-info {
+            position: fixed;
+            top: 80px;
+            width: 100%;
+            text-align: center;
+            font-size: 24px;
+            color: #27ae60;
+            z-index: 10;
+            font-weight: bold;
+            pointer-events: none;
+        }
+
+        /* 補助線 */
+        .grid-lines {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 1;
+        }
+        .line-h { position: absolute; top: 50%; left: 0; width: 100%; height: 1px; border-top: 1px dashed #ccc; }
+        .line-v { position: absolute; left: 50%; top: 0; width: 1px; height: 100%; border-left: 1px dashed #ccc; }
+
+        /* お手本漢字（最前面） */
+        #guide {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 75vh;
+            color: rgba(0, 0, 0, 0.05);
+            user-select: none;
+            pointer-events: none;
+            z-index: 20;
+            font-weight: normal;
+        }
+
+        canvas {
+            display: block;
+            touch-action: none;
+            z-index: 5;
+            position: relative;
+        }
+
+        button, select {
+            padding: 8px 15px;
+            font-size: 16px;
+            border-radius: 20px;
+            border: 2px solid #2ecc71;
+            background: white;
+            cursor: pointer;
+        }
+
+        button.clear { background: #fab1a0; border-color: #e17055; }
+        button.next { background: #2ecc71; color: white; border: none; font-weight: bold; }
+        
+        @media (max-width: 600px) {
+            #guide { font-size: 70vw; }
+            .yomi-info { font-size: 18px; top: 70px; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="ui-panel">
+        <select id="char-selector"></select>
+        <button class="clear" onclick="clearCanvas()">けす</button>
+        <button class="next" onclick="nextChar()">つぎへ</button>
+    </div>
+
+    <div id="yomi" class="yomi-info"></div>
+
+    <div class="grid-lines">
+        <div class="line-h"></div>
+        <div class="line-v"></div>
+    </div>
+
+    <div id="guide">一</div>
+
+    <canvas id="paintCanvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById('paintCanvas');
+        const ctx = canvas.getContext('2d');
+        const guide = document.getElementById('guide');
+        const yomiDiv = document.getElementById('yomi');
+        const selector = document.getElementById('char-selector');
+        
+        // 小学一年生の漢字（80文字）と読みのリスト
+        const kanjiData = [
+            {k:"一", y:"イチ・ひとつ"}, {k:"二", y:"ニ・ふたつ"}, {k:"三", y:"サン・みっつ"}, {k:"四", y:"シ・よっつ"}, {k:"五", y:"ゴ・いつつ"},
+            {k:"六", y:"ロク・むっつ"}, {k:"七", y:"シチ・ななつ"}, {k:"八", y:"ハチ・やっつ"}, {k:"九", y:"キュウ・ここのつ"}, {k:"十", y:"ジュウ・とお"},
+            {k:"百", y:"ヒャク"}, {k:"千", y:"セン"}, {k:"上", y:"ジョウ・うえ"}, {k:"下", y:"カ・した"}, {k:"左", y:"サ・ひだり"},
+            {k:"右", y:"ウ・みぎ"}, {k:"中", y:"チュウ・なか"}, {k:"大", y:"ダイ・おおきい"}, {k:"小", y:"ショウ・ちいさい"}, {k:"月", y:"ゲツ・つき"},
+            {k:"火", y:"カ・ひ"}, {k:"水", y:"スイ・みず"}, {k:"木", y:"モク・き"}, {k:"金", y:"キン・かね"}, {k:"土", y:"ド・つち"},
+            {k:"日", y:"ニチ・ひ"}, {k:"年", y:"ネン・とし"}, {k:"早", y:"ソウ・はやい"}, {k:"白", y:"ハク・しろ"}, {k:"赤", y:"セキ・あか"},
+            {k:"青", y:"セイ・あお"}, {k:"夕", y:"セキ・ゆう"}, {k:"空", y:"クウ・そら"}, {k:"天", y:"テン・あめ"}, {k:"山", y:"サン・やま"},
+            {k:"川", y:"セン・かわ"}, {k:"林", y:"リン・はやし"}, {k:"森", y:"シン・もり"}, {k:"草", y:"ソウ・くさ"}, {k:"花", y:"カ・はな"},
+            {k:"竹", y:"チク・たけ"}, {k:"虫", y:"チュウ・むし"}, {k:"貝", y:"カイ"}, {k:"犬", y:"ケン・いぬ"}, {k:"足", y:"ソク・あし"},
+            {k:"手", y:"シュ・て"}, {k:"目", y:"モク・め"}, {k:"耳", y:"ジ・みみ"}, {k:"口", y:"コウ・くち"}, {k:"名", y:"メイ・な"},
+            {k:"石", y:"セキ・いし"}, {k:"立", y:"リツ・たつ"}, {k:"入", y:"ニュウ・はいる"}, {k:"出", y:"シュツ・でる"}, {k:"見", y:"ケン・みる"},
+            {k:"字", y:"ジ・あざ"}, {k:"学", y:"ガク・まなぶ"}, {k:"校", y:"コウ"}, {k:"先", y:"セン・さき"}, {k:"生", y:"セイ・いきる"},
+            {k:"文", y:"ブン・ふみ"}, {k:"本", y:"ホン・もと"}, {k:"正", y:"セイ・ただしい"}, {k:"力", y:"リョク・ちから"}, {k:"音", y:"オン・おと"},
+            {k:"気", y:"キ"}, {k:"円", y:"エン・まるい"}, {k:"王", y:"オウ"}, {k:"玉", y:"ギョク・たま"}, {k:"子", y:"シ・こ"},
+            {k:"男", y:"ダン・おとこ"}, {k:"女", y:"ジョ・おんな"}, {k:"人", y:"ジン・ひと"}, {k:"休", y:"キュウ・やすむ"}, {k:"何", y:"カ・なに"},
+            {k:"村", y:"ソン・むら"}, {k:"町", y:"チョウ・まち"}, {k:"糸", y:"シ・いと"}, {k:"車", y:"シャ・くるま"}, {k:"雨", y:"ウ・あめ"}
+        ];
+
+        let isDrawing = false;
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            ctx.lineWidth = window.innerWidth < 600 ? 12 : 20;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.strokeStyle = '#333';
+        }
+
+        // セレクトボックス初期化
+        kanjiData.forEach((item, index) => {
+            const opt = document.createElement('option');
+            opt.value = index;
+            opt.innerHTML = item.k;
+            selector.appendChild(opt);
+        });
+
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        function startDrawing(e) {
+            isDrawing = true;
+            draw(e);
+        }
+
+        function stopDrawing() {
+            isDrawing = false;
+            ctx.beginPath();
+        }
+
+        function draw(e) {
+            if (!isDrawing) return;
+            const x = (e.clientX || (e.touches && e.touches[0].clientX));
+            const y = (e.clientY || (e.touches && e.touches[0].clientY));
+
+            ctx.lineTo(x, y);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+        }
+
+        function clearCanvas() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+
+        function nextChar() {
+            let index = parseInt(selector.value);
+            index = (index + 1) % kanjiData.length;
+            selector.value = index;
+            updateGuide();
+        }
+
+        function updateGuide() {
+            const data = kanjiData[selector.value];
+            guide.innerText = data.k;
+            yomiDiv.innerText = "【よみ】 " + data.y;
+            clearCanvas();
+        }
+
+        canvas.addEventListener('mousedown', startDrawing);
+        canvas.addEventListener('mousemove', draw);
+        window.addEventListener('mouseup', stopDrawing);
+        canvas.addEventListener('touchstart', (e) => { e.preventDefault(); startDrawing(e); }, {passive: false});
+        canvas.addEventListener('touchmove', (e) => { e.preventDefault(); draw(e); }, {passive: false});
+        canvas.addEventListener('touchend', stopDrawing);
+
+        selector.addEventListener('change', updateGuide);
+        
+        // 初回表示
+        updateGuide();
+
+    </script>
+</body>
+</html>
